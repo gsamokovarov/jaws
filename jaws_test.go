@@ -107,13 +107,13 @@ func TestHandler_TokenDecoding(t *testing.T) {
 			return
 		}
 
-		if claims, ok := token.Claims.(jwt.MapClaims); ok {
+		if claims, err := Claims(r.Context()); err == nil {
 			if claims["foo"] != "bar" {
 				t.Errorf("Expected claim foo in %v", claims)
 				return
 			}
 		} else {
-			t.Error("Expected claims, but none found")
+			t.Error("Expected claims, but got: %v", err)
 		}
 	})
 
