@@ -1,6 +1,7 @@
 package jaws
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -84,6 +85,32 @@ func TestValidate_DefaultsErrorResponse(t *testing.T) {
 
 	if m.ErrorResponse == nil {
 		t.Errorf("Expected Validate to not be nil, got: %v", m)
+	}
+}
+
+func TestHandler_CanSignTokensWithoutAuthorization(t *testing.T) {
+	t.Parallel()
+
+	r, _ := http.NewRequest("GET", "/", nil)
+	w := httptest.NewRecorder()
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		token, err := Sign(r.Context(), jwt.StandardClaims{
+			Id: "badbadnotgood",
+		})
+		if err != nil {
+			t.Errorf("Unexpected error, got: %v", err)
+			return
+		}
+
+		fmt.Fprint(w, token)
+	})
+
+	New(jwtHandler)(handler).ServeHTTP(w, r)
+
+	bytesRead, _ := ioutil.ReadAll(w.Body)
+	if len(bytes.Split(bytesRead, []byte("."))) != 3 {
+		t.Errorf("Expected a token, got: %v", string(bytesRead))
 	}
 }
 

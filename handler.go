@@ -22,16 +22,20 @@ type Handler struct {
 // extracts the token and processes the requests to
 // another handler, if needed.
 func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(signerToContext(r.Context(), h.Signer))
+
 	token, err := request.ParseFromRequest(r, request.AuthorizationHeaderExtractor, h.Secret)
+	if err == request.ErrNoTokenInRequest {
+		h.next.ServeHTTP(w, r)
+		return
+	}
+
 	if err != nil || h.SigningMethod.Alg() != token.Header["alg"] || !token.Valid {
 		h.ErrorResponse(w, r)
 		return
 	}
 
-	r = r.WithContext(signerToContext(r.Context(), h.Signer))
-	r = r.WithContext(tokenToContext(r.Context(), token))
-
-	h.next.ServeHTTP(w, r)
+	h.next.ServeHTTP(w, r.WithContext(tokenToContext(r.Context(), token)))
 }
 
 // Validate catches invalid Handler structs early in your program run. It will
