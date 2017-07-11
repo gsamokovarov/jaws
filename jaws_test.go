@@ -33,55 +33,49 @@ var (
 func TestValidate_RequiresSigningMethod(t *testing.T) {
 	t.Parallel()
 
-	defer func() {
-		if r := recover(); r == nil {
-			t.Error("Expected Validate to require SingingMethod")
-		}
-	}()
-
-	Validate(Handler{
+	_, err := Validate(Handler{
 		Secret: jwtHandler.Secret,
 	})
+	if err == nil {
+		t.Error("Expected Validate to require SingingMethod")
+	}
 }
 
 func TestValidate_RequiresSigner(t *testing.T) {
 	t.Parallel()
 
-	defer func() {
-		if r := recover(); r == nil {
-			t.Error("Expected Validate to require Signer")
-		}
-	}()
-
-	Validate(Handler{
+	_, err := Validate(Handler{
 		Secret:        jwtHandler.Secret,
 		SigningMethod: jwtHandler.SigningMethod,
 	})
+	if err == nil {
+		t.Error("Expected Validate to require Signer")
+	}
 }
 
 func TestValidate_RequiresSecret(t *testing.T) {
 	t.Parallel()
 
-	defer func() {
-		if r := recover(); r == nil {
-			t.Error("Expected Validate to require Secret")
-		}
-	}()
-
-	Validate(Handler{
+	_, err := Validate(Handler{
 		SigningMethod: jwtHandler.SigningMethod,
 		Signer:        jwtHandler.Signer,
 	})
+	if err == nil {
+		t.Error("Expected Validate to require Secret")
+	}
 }
 
 func TestValidate_DefaultsErrorResponse(t *testing.T) {
 	t.Parallel()
 
-	m := Validate(Handler{
+	m, err := Validate(Handler{
 		SigningMethod: jwtHandler.SigningMethod,
 		Secret:        jwtHandler.Secret,
 		Signer:        jwtHandler.Signer,
 	})
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
 
 	if m.ErrorResponse == nil {
 		t.Errorf("Expected Validate to not be nil, got: %v", m)
@@ -179,7 +173,7 @@ func TestMock_SetupsTestingRequest(t *testing.T) {
 	r, _ := http.NewRequest("GET", "/", nil)
 	r.Header.Set("Authorization", "Bearer "+jwtTokenString)
 
-	ctx, err := Mock(r, jwtHandler.Secret, jwtHandler.Signer)
+	ctx, err := Mock(r, jwtHandler)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 		return

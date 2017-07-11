@@ -38,17 +38,17 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // Validate catches invalid Handler structs early in your program run. It will
-// panic if Handler.SigningMethod or Handler.Secret are nil.
-func Validate(h Handler) Handler {
+// panic if Handler.SigningMethod, Handler.Secret or h.Signer are nil.
+func Validate(h Handler) (Handler, error) {
 	if h.SigningMethod == nil || h.Secret == nil || h.Signer == nil {
-		panic(fmt.Sprintf("no zero values allowed in %v", h))
+		return h, fmt.Errorf("no zero values allowed in %v", h)
 	}
 
 	if h.ErrorResponse == nil {
 		h.ErrorResponse = defaultErrorResponse
 	}
 
-	return h
+	return h, nil
 }
 
 // New creates a middleware that decodes JWT tokens and puts them into the
@@ -60,7 +60,10 @@ func Validate(h Handler) Handler {
 // Put this before any other JWT dependent authentication or authorization
 // middlewares in your stack.
 func New(h Handler) func(http.Handler) http.Handler {
-	handler := Validate(h)
+	handler, err := Validate(h)
+	if err != nil {
+		panic(err)
+	}
 
 	return func(next http.Handler) http.Handler {
 		handler.next = next
