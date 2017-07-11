@@ -173,6 +173,28 @@ func TestSign_FromRequestContext(t *testing.T) {
 	}
 }
 
+func TestMock_SetupsTestingRequest(t *testing.T) {
+	t.Parallel()
+
+	r, _ := http.NewRequest("GET", "/", nil)
+	r.Header.Set("Authorization", "Bearer "+jwtTokenString)
+
+	ctx, err := Mock(r, jwtHandler.Secret, jwtHandler.Signer)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+		return
+	}
+
+	if _, err = Token(ctx); err != nil {
+		t.Errorf("Unexpected error: %v", err)
+		return
+	}
+
+	if _, err = Sign(ctx, jwt.StandardClaims{Id: "bad.bad.notgood"}); err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+}
+
 func generateStringToken(m Handler, claims jwt.Claims) string {
 	token := jwt.NewWithClaims(m.SigningMethod, claims)
 

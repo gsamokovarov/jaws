@@ -19,8 +19,7 @@ type Handler struct {
 }
 
 // ServeHTTP handler implements the http.Handler interface for Handler. It
-// extracts the token and processes the requests to
-// another handler, if needed.
+// extracts the token and processes the requests to another handler, if needed.
 func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r = r.WithContext(signerToContext(r.Context(), h.Signer))
 
