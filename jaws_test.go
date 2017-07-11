@@ -12,12 +12,18 @@ import (
 )
 
 var (
-	jwtHandler = Handler{
+	simpleHandler = Handler{
 		SigningMethod: jwt.SigningMethodHS256,
-		Secret: func(*jwt.Token) (interface{}, error) {
+		Secret:        []byte("test1234"),
+	}
+
+	fullHandler = Handler{
+		SigningMethod: jwt.SigningMethodHS256,
+		Secret:        []byte("test1234"),
+		SecretFunc: func(*jwt.Token) (interface{}, error) {
 			return []byte("test1234"), nil
 		},
-		Signer: func(claims jwt.Claims) (string, error) {
+		SignerFunc: func(claims jwt.Claims) (string, error) {
 			return jwt.
 				NewWithClaims(jwt.SigningMethodHS256, claims).
 				SignedString([]byte("test1234"))
@@ -27,58 +33,58 @@ var (
 		},
 	}
 
-	jwtTokenString = generateStringToken(jwtHandler, jwt.MapClaims{"foo": "bar"})
+	jwtTokenString = generateStringToken(fullHandler, jwt.MapClaims{"foo": "bar"})
 )
 
-func TestValidate_RequiresSigningMethod(t *testing.T) {
+func Test_validate_RequiresSigningMethod(t *testing.T) {
 	t.Parallel()
 
-	_, err := Validate(Handler{
-		Secret: jwtHandler.Secret,
+	_, err := validate(Handler{
+		SecretFunc: fullHandler.SecretFunc,
 	})
 	if err == nil {
-		t.Error("Expected Validate to require SingingMethod")
+		t.Error("Expected validate to require SingingMethod")
 	}
 }
 
-func TestValidate_RequiresSigner(t *testing.T) {
+func Test_validate_RequiresSigner(t *testing.T) {
 	t.Parallel()
 
-	_, err := Validate(Handler{
-		Secret:        jwtHandler.Secret,
-		SigningMethod: jwtHandler.SigningMethod,
+	_, err := validate(Handler{
+		SecretFunc:    fullHandler.SecretFunc,
+		SigningMethod: fullHandler.SigningMethod,
 	})
 	if err == nil {
-		t.Error("Expected Validate to require Signer")
+		t.Error("Expected validate to require Signer")
 	}
 }
 
-func TestValidate_RequiresSecret(t *testing.T) {
+func Test_validate_RequiresSecret(t *testing.T) {
 	t.Parallel()
 
-	_, err := Validate(Handler{
-		SigningMethod: jwtHandler.SigningMethod,
-		Signer:        jwtHandler.Signer,
+	_, err := validate(Handler{
+		SigningMethod: fullHandler.SigningMethod,
+		SignerFunc:    fullHandler.SignerFunc,
 	})
 	if err == nil {
-		t.Error("Expected Validate to require Secret")
+		t.Error("Expected validate to require SecretFunc")
 	}
 }
 
-func TestValidate_DefaultsErrorResponse(t *testing.T) {
+func Test_validate_DefaultsErrorResponse(t *testing.T) {
 	t.Parallel()
 
-	m, err := Validate(Handler{
-		SigningMethod: jwtHandler.SigningMethod,
-		Secret:        jwtHandler.Secret,
-		Signer:        jwtHandler.Signer,
+	m, err := validate(Handler{
+		SigningMethod: fullHandler.SigningMethod,
+		SecretFunc:    fullHandler.SecretFunc,
+		SignerFunc:    fullHandler.SignerFunc,
 	})
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
 	if m.ErrorResponse == nil {
-		t.Errorf("Expected Validate to not be nil, got: %v", m)
+		t.Errorf("Expected validate to not be nil, got: %v", m)
 	}
 }
 
@@ -100,7 +106,7 @@ func TestHandler_CanSignTokensWithoutAuthorization(t *testing.T) {
 		fmt.Fprint(w, token)
 	})
 
-	New(jwtHandler)(handler).ServeHTTP(w, r)
+	New(simpleHandler)(handler).ServeHTTP(w, r)
 
 	bytesRead, _ := ioutil.ReadAll(w.Body)
 	if len(bytes.Split(bytesRead, []byte("."))) != 3 {
@@ -134,11 +140,11 @@ func TestHandler_TokenDecoding(t *testing.T) {
 				return
 			}
 		} else {
-			t.Error("Expected claims, but got: %v", err)
+			t.Errorf("Expected claims, but got: %v", err)
 		}
 	})
 
-	New(jwtHandler)(handler).ServeHTTP(w, r)
+	New(simpleHandler)(handler).ServeHTTP(w, r)
 }
 
 func TestSign_FromRequestContext(t *testing.T) {
@@ -159,7 +165,7 @@ func TestSign_FromRequestContext(t *testing.T) {
 		fmt.Fprint(w, token)
 	})
 
-	New(jwtHandler)(handler).ServeHTTP(w, r)
+	New(simpleHandler)(handler).ServeHTTP(w, r)
 
 	bytes, _ := ioutil.ReadAll(w.Body)
 	if len(bytes) == 0 {
@@ -173,7 +179,7 @@ func TestMock_SetupsTestingRequest(t *testing.T) {
 	r, _ := http.NewRequest("GET", "/", nil)
 	r.Header.Set("Authorization", "Bearer "+jwtTokenString)
 
-	ctx, err := Mock(r, jwtHandler)
+	ctx, err := Mock(r, fullHandler)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 		return
@@ -192,12 +198,7 @@ func TestMock_SetupsTestingRequest(t *testing.T) {
 func generateStringToken(m Handler, claims jwt.Claims) string {
 	token := jwt.NewWithClaims(m.SigningMethod, claims)
 
-	secret, err := m.Secret(nil)
-	if err != nil {
-		panic(err)
-	}
-
-	tokenString, err := token.SignedString(secret)
+	tokenString, err := token.SignedString(m.Secret)
 	if err != nil {
 		panic(err)
 	}

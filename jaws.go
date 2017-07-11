@@ -46,17 +46,17 @@ func Claims(ctx context.Context) (jwt.MapClaims, error) {
 // Mock creates a context suitable for encoding and decoding tokens, from a
 // request. Useful in tests.
 func Mock(r *http.Request, h Handler) (context.Context, error) {
-	h, err := Validate(h)
+	h, err := validate(h)
 	if err != nil {
 		return nil, err
 	}
 
-	token, err := request.ParseFromRequest(r, request.AuthorizationHeaderExtractor, h.Secret)
+	token, err := request.ParseFromRequest(r, request.AuthorizationHeaderExtractor, h.SecretFunc)
 	if err != nil && err != request.ErrNoTokenInRequest {
 		return nil, err
 	}
 
-	r = r.WithContext(signerToContext(r.Context(), h.Signer))
+	r = r.WithContext(signerToContext(r.Context(), h.SignerFunc))
 	r = r.WithContext(tokenToContext(r.Context(), token))
 
 	return r.Context(), nil
