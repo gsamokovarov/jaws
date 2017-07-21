@@ -10,7 +10,6 @@ import (
 
 // Handler handles JWT request extraction and validation. It also servers as a
 // configuration struct to the New function.
-//
 type Handler struct {
 	Secret        []byte
 	SecretFunc    jwt.Keyfunc
